@@ -146,8 +146,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Conway's Game of Life",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Example: life.py -s (10,10) #start the game with a 10x10 playing field")
-    parser.add_argument('-l', '--load', help='Load a pattern.')
+        epilog="Example: life.py")
     args = parser.parse_args()
 
     try:
