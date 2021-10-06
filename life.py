@@ -45,6 +45,7 @@ class Life:
     def run(self):
         """function to run the game"""
 
+        if self.args.load: self.load(self.args.load)
         game_tick = False
         ms = 100 #time to wait between updates
         while True:
@@ -152,26 +153,33 @@ class Life:
         self.screen.nodelay(1) # reset terminal settings
         curses.noecho()
 
-    def load(self):
+    def load(self, filename=None):
         """function to load a saved array using numpy"""
 
-        self.screen.nodelay(0) # set new terminal settings
-        curses.echo()
+        if not filename: # enter submenu for user to specify a filename
+            self.screen.nodelay(0) # set new terminal settings
+            curses.echo()
 
-        self.screen.clear()
-        self.screen.addstr(1, 0, "Load file: ")
-        input = str(self.screen.getstr(1, 11), encoding='utf-8')
-        self.screen.clear()
-        self.screen.refresh()
+            self.screen.clear()
+            self.screen.addstr(1, 0, "Load file: ")
+            filename = str(self.screen.getstr(1, 11), encoding='utf-8')
+            self.screen.clear()
+            self.screen.refresh()
+
+            self.screen.nodelay(1) # reset terminal settings
+            curses.noecho()
+
+        new_arr = None
         try:
-            new_plane = np.load(input)
+            new_arr = np.load(filename)
             self.screen.addstr(1, 0, "File loaded.")
         except Exception as e:
-            self.screen.addstr(1, 0, "Error" + str(e))
-        self.plane = np.copy(new_plane)
+            self.screen.addstr(1, 0, "Error loading file." + str(e))
 
-        self.screen.nodelay(1) # reset terminal settings
-        curses.noecho()
+        if new_arr.any():
+            self.plane = np.copy(new_arr)
+
+
 
 
 if __name__ == '__main__':
@@ -191,6 +199,7 @@ if __name__ == '__main__':
         screen.keypad(1)
 
         lf = Life(args, screen)
+
         lf.run()
 
         screen.nodelay(0) #reset terminal settings
