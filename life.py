@@ -2,7 +2,7 @@ import argparse
 import curses
 from curses.textpad import rectangle
 import numpy as np
-
+import time
 
 def clamp(num, min_value, max_value):
    return max(min(num, max_value), min_value)
@@ -33,22 +33,34 @@ class Life:
     def run(self):
 
         game_tick = False
-        ms = 100
+        ms = 100 #time to wait between updates
         while True:
-            event = self.screen.getch()
-            curses.flushinp()
-            if event == ord("q"): break
-            if event == ord("e"): self.edit_mode()
-            if event == ord("r"): game_tick = True
-            if event == ord("p"): game_tick = False
-            if event == ord("g"): ms = clamp(ms-10, 30, 5000)
-            if event == ord("h"): ms = clamp(ms+10, 30, 5000)
+            events = self.get_events(ms) #get event queue
+            if ord("q") in events: break
+            if ord("e") in events: self.edit_mode()
+            if ord("r") in events: game_tick = True
+            if ord("p") in events: game_tick = False
+            if ord("g") in events: ms = clamp(ms-10, 30, 5000)
+            if ord("h") in events: ms = clamp(ms+10, 30, 5000)
             if game_tick: self.game_update()
 
             self.screen.addstr(0, 0, "Conway's Game of Life, Presented by Jacob Smith")
             self.screen.addstr(2, 0, "Press e to enter edit mode, press r to start the game, p to pause, q to quit.")
             self.draw_game()
-            curses.napms(ms)
+            #curses.napms(ms)
+
+    def get_events(self, time_window):
+        """loop for time_window time and collect events"""
+        start_time = time.time()*1000
+        elapsed_time = 0
+        events = []
+        while time_window > elapsed_time:
+            new_event = self.screen.getch()
+            events.append(new_event)
+            current_time = time.time()*1000
+            elapsed_time = current_time - start_time
+        curses.flushinp() #clear the buffer
+        return events
 
     def game_update(self):
         max_h = self.plane.shape[0]
@@ -77,23 +89,24 @@ class Life:
     def edit_mode(self):
         h, w = self.plane.shape
         if not self.edit_pos: self.edit_pos = [int(h/2),int(w/2)]
+        ms = 50
         while True:
-            event = self.screen.getch()
+            events = self.get_events(ms)
             curses.flushinp()
-            if event == ord("q"): break
-            if event in [ord("w"), ord("s"), ord("a"), ord("d")]: self.handle_directional(event, self.edit_pos, 0, w, 0, h, 1)
-            if event == ord("z"): self.plane[self.edit_pos[0]][self.edit_pos[1]] = True
-            if event == ord("x"): self.plane[self.edit_pos[0]][self.edit_pos[1]] = False
-            if event == ord("f"): self.plane.fill(True)
-            if event == ord("c"): self.plane.fill(False)
-            if event == ord("n"): self.plane = np.random.randint(0, 2, (h, w))
-            if event == ord("o"): self.save()
-            if event == ord("l"): self.load()
+            if ord("q") in events: break
+            for dir in [ord("w"), ord("s"), ord("a"), ord("d")]:
+                if dir in events: self.handle_directional(dir, self.edit_pos, 0, w, 0, h, 1)
+            if ord("z") in events: self.plane[self.edit_pos[0]][self.edit_pos[1]] = True
+            if ord("x") in events: self.plane[self.edit_pos[0]][self.edit_pos[1]] = False
+            if ord("f") in events: self.plane.fill(True)
+            if ord("c") in events: self.plane.fill(False)
+            if ord("n") in events: self.plane = np.random.randint(0, 2, (h, w))
+            if ord("o") in events: self.save()
+            if ord("l") in events: self.load()
             self.draw_game()
             curses.napms(50)
             self.game_window.addstr(self.edit_pos[0] + 1,self.edit_pos[1] + 1, "▉")
             self.game_window.refresh()
-            curses.napms(50)
             self.screen.addstr(0, 0, "Conway's Game of Life, Presented by Jacob Smith")
             self.screen.addstr(1, 0, "Edit Mode.")
             self.screen.addstr(2, 0, "Move with w s a d keys, press z to create a cell, x to clear a cell, f to fill all and c to clear all.")
@@ -113,7 +126,7 @@ class Life:
         self.screen.clear()
         self.screen.addstr(1, 0, "Saved pattern as: " + input)
         self.screen.refresh()
-        curses.napms(1000)
+        curses.napms(3000)
         self.screen.clear()
         self.screen.nodelay(1)
         curses.noecho()
@@ -146,7 +159,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Conway's Game of Life",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Example: life.py")
+        epilog="Example: life.py -s (10,10) #start the game with a 10x10 playing field")
+    parser.add_argument('-l', '--load', help='Load a pattern.')
     args = parser.parse_args()
 
     try:
