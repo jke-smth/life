@@ -5,9 +5,19 @@ import numpy as np
 import time
 
 def clamp(num, min_value, max_value):
-   return max(min(num, max_value), min_value)
+    """helper function to clamp an int between min and max values"""
+    return max(min(num, max_value), min_value)
+
+def handleDirectional(event, coord, min_x, max_x, min_y, max_y, step):
+    """helper function to handle directional input"""
+    if event == ord("w") and (coord[0] - step) >= min_y: coord[0] -= step # Todo: use clamp() for this
+    if event == ord("s") and (coord[0] + step) <= max_y: coord[0] += step
+    if event == ord("a") and (coord[1] - step) >= min_x: coord[1] -= step
+    if event == ord("d") and (coord[1] + step) <= max_x: coord[1] += step
+    return coord
 
 def rowString(r):
+    """helper function to convert a row [] into a string"""
     s = ''
     for c in r:
         if c: s += "O"
@@ -15,6 +25,8 @@ def rowString(r):
     return s
 
 class Life:
+
+    """Curses based terminal game engine for Conway's Game of Life"""
 
     def __init__(self, args, screen):
         self.args = args
@@ -31,6 +43,7 @@ class Life:
         self.edit_pos = None
 
     def run(self):
+        """function to run the game"""
 
         game_tick = False
         ms = 100 #time to wait between updates
@@ -50,7 +63,7 @@ class Life:
             #curses.napms(ms)
 
     def get_events(self, time_window):
-        """loop for time_window time and collect events"""
+        """loop for time_window time and collect events into a list using getch"""
         start_time = time.time()*1000
         elapsed_time = 0
         events = []
@@ -63,6 +76,7 @@ class Life:
         return events
 
     def game_update(self):
+        """update the game by iterating over the entire array and applying Conway's rules"""
         max_h = self.plane.shape[0]
         max_w = self.plane.shape[1]
         next_plane = np.copy(self.plane)
@@ -78,6 +92,7 @@ class Life:
         self.plane = np.copy(next_plane)
 
     def draw_game(self):
+        """convert rows in the array into strings and display them in the subwindow"""
         mask_y, mask_x = self.game_window.getmaxyx()
         self.game_window.clear()
         self.game_window.box()
@@ -87,6 +102,8 @@ class Life:
         self.game_window.refresh()
 
     def edit_mode(self):
+        """submenu for editing the current array"""
+
         h, w = self.plane.shape
         if not self.edit_pos: self.edit_pos = [int(h/2),int(w/2)]
         ms = 50
@@ -95,7 +112,7 @@ class Life:
             curses.flushinp()
             if ord("q") in events: break
             for dir in [ord("w"), ord("s"), ord("a"), ord("d")]:
-                if dir in events: self.handle_directional(dir, self.edit_pos, 0, w -1, 0, h -1, 1) #not sure why the need to -1
+                if dir in events: handleDirectional(dir, self.edit_pos, 0, w -1, 0, h -1, 1)
             if ord("z") in events: self.plane[self.edit_pos[0]][self.edit_pos[1]] = True
             if ord("x") in events: self.plane[self.edit_pos[0]][self.edit_pos[1]] = False
             if ord("f") in events: self.plane.fill(True)
@@ -116,8 +133,11 @@ class Life:
         self.screen.clear()
 
     def save(self):
-        self.screen.nodelay(0)
+        """function to save the current array using numpy"""
+
+        self.screen.nodelay(0) # set new terminal settings
         curses.echo()
+
         self.screen.clear()
         self.screen.addstr(1, 0, "Save as: ")
         input = str(self.screen.getstr(1, 10), encoding='utf-8')
@@ -128,12 +148,16 @@ class Life:
         self.screen.refresh()
         curses.napms(3000)
         self.screen.clear()
-        self.screen.nodelay(1)
+
+        self.screen.nodelay(1) # reset terminal settings
         curses.noecho()
 
     def load(self):
-        self.screen.nodelay(0)
+        """function to load a saved array using numpy"""
+
+        self.screen.nodelay(0) # set new terminal settings
         curses.echo()
+
         self.screen.clear()
         self.screen.addstr(1, 0, "Load file: ")
         input = str(self.screen.getstr(1, 11), encoding='utf-8')
@@ -145,15 +169,10 @@ class Life:
         except Exception as e:
             self.screen.addstr(1, 0, "Error" + str(e))
         self.plane = np.copy(new_plane)
-        self.screen.nodelay(1)
+
+        self.screen.nodelay(1) # reset terminal settings
         curses.noecho()
 
-    def handle_directional(self, event, coord, min_x, max_x, min_y, max_y, step):
-        if event == ord("w") and (coord[0] - step) >= min_y: coord[0] -= step
-        if event == ord("s") and (coord[0] + step) <= max_y: coord[0] += step
-        if event == ord("a") and (coord[1] - step) >= min_x: coord[1] -= step
-        if event == ord("d") and (coord[1] + step) <= max_x: coord[1] += step
-        return coord
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -164,7 +183,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     try:
-        screen = curses.initscr()
+        screen = curses.initscr() #set new terminal settings
         curses.noecho()
         curses.cbreak()
         curses.curs_set(0)
@@ -174,7 +193,7 @@ if __name__ == '__main__':
         lf = Life(args, screen)
         lf.run()
 
-        screen.nodelay(0)
+        screen.nodelay(0) #reset terminal settings
         screen.keypad(0)
         curses.echo()
         curses.nocbreak()
@@ -182,7 +201,7 @@ if __name__ == '__main__':
         curses.endwin()
 
     except Exception as e:
-        screen.nodelay(0)
+        screen.nodelay(0) #reset terminal settings
         screen.keypad(0)
         curses.echo()
         curses.nocbreak()
