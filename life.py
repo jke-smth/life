@@ -95,7 +95,7 @@ class Life:
             curses.flushinp()
             if ord("q") in events: break
             for dir in [ord("w"), ord("s"), ord("a"), ord("d")]:
-                if dir in events: self.handle_directional(dir, self.edit_pos, 0, w, 0, h, 1)
+                if dir in events: self.handle_directional(dir, self.edit_pos, 0, w -1, 0, h -1, 1) #not sure why the need to -1
             if ord("z") in events: self.plane[self.edit_pos[0]][self.edit_pos[1]] = True
             if ord("x") in events: self.plane[self.edit_pos[0]][self.edit_pos[1]] = False
             if ord("f") in events: self.plane.fill(True)
