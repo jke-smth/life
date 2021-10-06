@@ -4,6 +4,8 @@ from curses.textpad import rectangle
 import numpy as np
 import time
 
+
+
 def clamp(num, min_value, max_value):
     """helper function to clamp an int between min and max values"""
     return max(min(num, max_value), min_value)
@@ -24,6 +26,8 @@ def rowString(r):
         else: s += " "
     return s
 
+
+
 class Life:
 
     """Curses based terminal game engine for Conway's Game of Life"""
@@ -31,40 +35,58 @@ class Life:
     def __init__(self, args, screen):
         self.args = args
         self.screen = screen
-        h, w = screen.getmaxyx()
+
+        h, w = screen.getmaxyx() # Get screen size and do math to determine subwindow dimensions
         g_w = w - 10
         g_h = h - 10
         mid_w = int(w/2)
         mid_h = int(h/2)
         top_l = (mid_w-int(g_w/2), mid_h-int(g_h/2))
+
         self.game_window = curses.newwin(g_h, g_w, top_l[0], top_l[1])
+        self.banner_window = curses.newwin(10, w, 0, 0)
+
+        self.b_h, self.b_w = self.banner_window.getmaxyx() # Saving thes values for drawing to the screen later
         p_h, p_w = self.game_window.getmaxyx()
-        self.plane = np.zeros((p_h-2, p_w-2), dtype=bool)
+
+        self.plane = np.zeros((p_h-2, p_w-2), dtype=bool) # Initializing a game array the same size as our screen Todo: change this
         self.edit_pos = None
 
     def run(self):
         """function to run the game"""
 
-        if self.args.load: self.load(self.args.load)
-        game_tick = False
+        if self.args.load: self.load(self.args.load) # We can specify a save file to load at start
+
+        game_running = False
         ms = 100 #time to wait between updates
+        exec_time = None
+
         while True:
             events = self.get_events(ms) #get event queue
             if ord("q") in events: break
             if ord("e") in events: self.edit_mode()
-            if ord("r") in events: game_tick = True
-            if ord("p") in events: game_tick = False
+            if ord("r") in events: game_running = True
+            if ord("p") in events: game_running = False
             if ord("g") in events: ms = clamp(ms-10, 30, 5000)
             if ord("h") in events: ms = clamp(ms+10, 30, 5000)
-            if game_tick: self.game_update()
 
-            self.screen.addstr(0, 0, "Conway's Game of Life, Presented by Jacob Smith")
-            self.screen.addstr(2, 0, "Press e to enter edit mode, press r to start the game, p to pause, q to quit.")
+            if game_running:
+                tic = time.perf_counter() # get performance data of the update function
+                self.game_update()
+                toc = time.perf_counter()
+                exec_time = toc - tic
+
+            self.banner_window.addstr(0, 0, "Conway's Game of Life, Presented by Jacob Smith") # Draw the main menu banner
+            self.banner_window.addstr(0, int(self.b_w/2), "Main Menu")
+            if exec_time: self.banner_window.addstr(1, 0, "Update function execution time: " + str(exec_time))
+            self.banner_window.addstr(2, 0, "Press e to enter edit mode, press r to start the game, p to pause, q to quit.")
+            self.banner_window.refresh()
+
             self.draw_game()
-            #curses.napms(ms)
+
 
     def get_events(self, time_window):
-        """loop for time_window time and collect events into a list using getch"""
+        """loop for time_window milliseconds and collect keypress events into a list using getch"""
         start_time = time.time()*1000
         elapsed_time = 0
         events = []
@@ -91,6 +113,7 @@ class Life:
                 elif item and n > 3: next_plane[i][j] = False
                 elif item and not (n == 2 or n == 3): next_plane[i][j] = False
         self.plane = np.copy(next_plane)
+
 
     def draw_game(self):
         """convert rows in the array into strings and display them in the subwindow"""
@@ -122,16 +145,18 @@ class Life:
             if ord("o") in events: self.save()
             if ord("l") in events: self.load()
             self.draw_game()
+
             curses.napms(50)
-            self.game_window.addstr(self.edit_pos[0] + 1,self.edit_pos[1] + 1, "▉")
+            self.game_window.addstr(self.edit_pos[0] + 1,self.edit_pos[1] + 1, "▉") # Draw the cursor
             self.game_window.refresh()
-            self.screen.addstr(0, 0, "Conway's Game of Life, Presented by Jacob Smith")
-            self.screen.addstr(1, 0, "Edit Mode.")
-            self.screen.addstr(2, 0, "Move with w s a d keys, press z to create a cell, x to clear a cell, f to fill all and c to clear all.")
-            self.screen.addstr(3, 0, "Press o to output the current cell pattern to a file, l to load a saved pattern, and q to exit.")
-            self.screen.addstr(4, 0, "Press n to fill the screen randomly.")
-            self.screen.refresh()
-        self.screen.clear()
+
+            self.banner_window.addstr(0, 0, "Conway's Game of Life, Presented by Jacob Smith") # Draw the edit menu banner
+            self.banner_window.addstr(0, int(self.b_w/2), "Edit Menu")
+            self.banner_window.addstr(2, 0, "Move with w s a d keys, press z to create a cell, x to clear a cell, f to fill all and c to clear all.")
+            self.banner_window.addstr(3, 0, "o to output the current cell pattern to a file, l to load a saved pattern.")
+            self.banner_window.addstr(4, 0, "n to fill the screen randomly, q to return to the main menu.")
+            self.banner_window.refresh()
+        self.banner_window.clear() # Clear the banner on exit edit menu
 
     def save(self):
         """function to save the current array using numpy"""
